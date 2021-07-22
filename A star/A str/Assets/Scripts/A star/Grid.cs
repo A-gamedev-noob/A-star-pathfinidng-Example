@@ -12,12 +12,16 @@ public class Grid : MonoBehaviour
     public float nodeRadius;
     Node[,] grid;
     public TerrainType[] walkableRegion;
-    public int proximityPenalty = 5;
+    public int proximityPenalty = 25;
     public LayerMask walkableMask;
     Dictionary<int,int> walkableRegionsDictionary = new Dictionary<int, int>();
 
     public List<Node> path;
     public int blur = 5;
+    
+    public GameObject platformContainer;
+    [HideInInspector]public List<GameObject> platforms = new List<GameObject>();
+
 
 
     int gridSizeX,gridSizeY;
@@ -26,8 +30,18 @@ public class Grid : MonoBehaviour
     int penaltyMin = int.MaxValue;
     int penaltyMax = int.MinValue;
 
-    void Awake()
-    {
+    private static Grid instance;
+    public static Grid Instance{
+        get{
+            if(instance == null){
+                instance = FindObjectOfType<Grid>();
+            }
+            return instance;
+        }
+    }
+
+
+    void Awake(){
         nodeDiameter = nodeRadius*2;
         gridSizeX = Mathf.RoundToInt(gridWorldSize.x/nodeDiameter);
         gridSizeY = Mathf.RoundToInt(gridWorldSize.y/nodeDiameter);
@@ -36,6 +50,7 @@ public class Grid : MonoBehaviour
             walkableRegionsDictionary.Add((int)Mathf.Log(region.terrainMask.value,2),region.terrainPenalty);
         }
         CreateGrid();
+        SortPlatforms();
     }
 
     public int MaxSize{
@@ -44,8 +59,7 @@ public class Grid : MonoBehaviour
         }
     }
 
-    void CreateGrid()
-    {
+    void CreateGrid(){
         grid = new Node[gridSizeX,gridSizeY];
         Vector3 worldBottomLeft = transform.position - Vector3.right*gridWorldSize.x/2 - Vector3.up*gridWorldSize.y/2;
 
@@ -54,27 +68,39 @@ public class Grid : MonoBehaviour
             for (int y=0;y<gridSizeY;y++)
             {
                 Vector3 worlPoint = worldBottomLeft + Vector3.right*(x*nodeDiameter+nodeRadius) + Vector3.up*(y*nodeDiameter+nodeRadius);
-                bool walkable = !(Physics2D.OverlapCircle(worlPoint,nodeRadius-0.05f,unwalkable));
+                bool walkable = !(Physics2D.OverlapCircle(worlPoint,nodeRadius-0.1f,unwalkable));
 
-                int movementPenalty = 0;
-                RaycastHit2D hit = Physics2D.CircleCast(worlPoint,nodeRadius- 0.05f,Vector2.zero);
-                 if(hit.collider!=null){
-                     walkableRegionsDictionary.TryGetValue(hit.transform.gameObject.layer,out movementPenalty);
+                int movementPenalty = 10;
+                if(walkable){
+                    RaycastHit2D hit = Physics2D.CircleCast(worlPoint,nodeRadius- 0.05f,Vector2.zero);
+                    if(hit.collider!=null){
+                        walkableRegionsDictionary.TryGetValue(hit.transform.gameObject.layer,out movementPenalty);
+                    }
                 }
-
                 if(!walkable)
-                    movementPenalty += proximityPenalty;
-                
-
+                    movementPenalty = 0;
                 grid[x,y] = new Node(walkable,worlPoint,x,y,movementPenalty);
             }
         }
 
         BlurPenaltyMap(blur);
+        DrawPath(grid);
     }
 
-    void BlurPenaltyMap(int blurSize)
-    {
+    public void DrawPath(Node[,] g){
+        for(int x=0;x<gridSizeX;x++){
+            for(int y=0;y<gridSizeY;y++){
+                int yCor = Mathf.Clamp(y-1,0,gridSizeY);
+                Node n = g[x,yCor];
+
+                if(!n.walkable && grid[x,y].walkable){
+                    g[x,y].movementPenalty = 2;
+                }
+            }
+        }
+    }
+
+    void BlurPenaltyMap(int blurSize){
         int kernelSize = blurSize * 2 + 1;
         int kernelExtents = (kernelSize - 1) / 2;
 
@@ -131,8 +157,13 @@ public class Grid : MonoBehaviour
 
     }
 
-    public List<Node> GetNeighbours(Node node)
-    {
+    void SortPlatforms(){
+        for(int x=0;x<platformContainer.transform.childCount;x++){
+            platforms.Add(platformContainer.transform.GetChild(x).gameObject);
+        }
+    }
+
+    public List<Node> GetNeighbours(Node node){
         List<Node> neighbours = new List<Node>();
         for(int x=-1;x<=1;x++)
         {
@@ -155,8 +186,7 @@ public class Grid : MonoBehaviour
         return neighbours;
     }
 
-    public Node NodeFromWorldPoint(Vector3 worldPos)
-    {
+    public Node NodeFromWorldPoint(Vector3 worldPos){
         float percentX = (worldPos.x + gridWorldSize.x/2)/gridWorldSize.x;
         float percentY = (worldPos.y + gridWorldSize.y/2)/gridWorldSize.y;
         percentX = Mathf.Clamp01(percentX);
@@ -177,19 +207,19 @@ public class Grid : MonoBehaviour
                 if (path != null)
                 {
                     if (path.Contains(n))
-                        Gizmos.color = Color.black;
+                        Gizmos.color = Color.green;
                 }
-                Gizmos.DrawCube(n.worldPosition, Vector3.one * (nodeDiameter)); 
+                Gizmos.DrawCube(n.worldPosition, Vector3.one * (nodeDiameter-0.1f)); 
             }   
         }
         
     }
 
-    [System.Serializable]
-    public class TerrainType
-    {
-        public LayerMask terrainMask;
-        public int terrainPenalty;
-    }
+    // [System.Serializable]
+    // public class TerrainType
+    // {
+    //     public LayerMask terrainMask;
+    //     public int terrainPenalty;
+    // }
   
 }

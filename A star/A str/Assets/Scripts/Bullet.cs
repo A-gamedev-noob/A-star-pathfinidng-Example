@@ -15,7 +15,7 @@ public class Bullet : MonoBehaviour {
 
     private void OnTriggerEnter2D(Collider2D other) 
     {
-        if(other.transform.CompareTag("Enemy"))
+        if(other.transform.CompareTag("Enemy") || other.gameObject.GetComponent<Health>()!=null)
             other.gameObject.GetComponent<Health>().DamageHealth(damage);
         Destroy(this.gameObject);
     }

@@ -35,6 +35,7 @@ public class EnemySpawner : MonoBehaviour
             transform.position,
             Quaternion.identity
         );
+        enemy.AddComponent<Health>();
         enemy.transform.SetParent(this.transform);
 
     }

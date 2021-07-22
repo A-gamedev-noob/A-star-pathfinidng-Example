@@ -18,11 +18,11 @@ public class PathFinding : MonoBehaviour
     }
     
 
-    public void StartPathFinding(Vector3 startPos, Vector3 targetPos){
-        StartCoroutine(FindingPath(startPos,targetPos));
+    public void StartPathFinding(Vector3 startPos, Vector3 targetPos,float JumpHieght){
+        StartCoroutine(FindingPath(startPos,targetPos,JumpHieght));
     }
 
-    IEnumerator FindingPath(Vector3 startPos, Vector3 targetPos){
+    IEnumerator FindingPath(Vector3 startPos, Vector3 targetPos,float jumpHieght){
         Stopwatch sw = new Stopwatch();
         sw.Start();
 
@@ -31,7 +31,7 @@ public class PathFinding : MonoBehaviour
 
         Node startNode = grid.NodeFromWorldPoint(startPos);
         Node targetNode = grid.NodeFromWorldPoint(targetPos);
-        
+
         if(startNode.walkable && targetNode.walkable){
             Heap<Node> openSet = new Heap<Node>(grid.MaxSize);
             HashSet<Node> closedSet = new HashSet<Node>();
@@ -56,7 +56,7 @@ public class PathFinding : MonoBehaviour
                     if (!neighbour.walkable || closedSet.Contains(neighbour))
                         continue;
 
-                    int newMovementCostToNeighbour = currentNode.gCost + GetDistance(currentNode, neighbour) + neighbour.movementPenalty;
+                    int newMovementCostToNeighbour = currentNode.gCost + GetDistance(currentNode, neighbour) + neighbour.movementPenalty ;//+ HieghtPenalty(neighbour, startPos, jumpHieght);
                     if (newMovementCostToNeighbour < neighbour.gCost || !openSet.Contains(neighbour))
                     {
                         neighbour.gCost = newMovementCostToNeighbour;
@@ -98,7 +98,6 @@ public class PathFinding : MonoBehaviour
             if(currentNode == targetNode)
             {
                 sw.Stop();
-                print("Path found in "+sw.ElapsedMilliseconds+"ms");
                 RetracePath(startNode,targetNode);
                 return;
             }
@@ -155,17 +154,37 @@ public class PathFinding : MonoBehaviour
 
     Vector3[] SimplifyPath(List<Node> path){
         List<Vector3> wayPoints = new List<Vector3>();
-        List<Node> wayNodes = new List<Node>();
         Vector2 directionOld = Vector2.zero;
         for(int i=1;i<path.Count;i++){
+
             Vector2 directionNew = new Vector2(path[i-1].gridPos.x - path[i].gridPos.x, path[i-1].gridPos.y - path[i].gridPos.y);
-            if(directionOld!=directionNew || i==path.Count-1){
-                wayNodes.Add(path[i]);
+
+
+            if((directionOld!=directionNew || i==path.Count-1)){
                 wayPoints.Add(path[i-1].worldPosition);
             }
             directionOld = directionNew;
         }
+        List<Vector3> pointsToRemove = new List<Vector3>();
+        for(int x=0;x<wayPoints.Count-1;x++){
+            int nextIndex = Mathf.Clamp(x + 1, x + 1, wayPoints.Count - 1);
+            if(Vector2.Distance(wayPoints[x],wayPoints[nextIndex])<5f){
+                pointsToRemove.Add(wayPoints[x]);
+            }
+        }
+
+        foreach(Vector3 point in pointsToRemove){
+            wayPoints.Remove(point);
+        }
         return wayPoints.ToArray();
     }
- 
+
+    int HieghtPenalty(Node node, Vector3 unitPos, float jumpHieght)
+    {
+        float YDistance = Mathf.Abs(node.worldPosition.y - unitPos.y);
+        if(YDistance > jumpHieght)
+            return 0;
+        return 0;
+    }
+
 }
